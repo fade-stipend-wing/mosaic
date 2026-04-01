@@ -6,7 +6,7 @@ import type { DataSource, TableInfo } from '@/types';
 
 export function DataSourcePanel() {
   const dataSources = useDataSources();
-  const { addDataSource, removeDataSource, updateDataSourceStatus } = useAppStore();
+  const { addDataSource, removeDataSource } = useAppStore();
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

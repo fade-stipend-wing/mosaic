@@ -3,9 +3,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including libuv for socketify
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    libuv1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy server package

@@ -67,9 +67,6 @@ export function PropertiesPanel({ widget }: PropertiesPanelProps) {
       c.type.toUpperCase().includes(t)
     )
   );
-  const categoricalColumns = columns.filter((c) =>
-    ['VARCHAR', 'TEXT', 'STRING'].some((t) => c.type.toUpperCase().includes(t))
-  );
 
   return (
     <div className="p-3">

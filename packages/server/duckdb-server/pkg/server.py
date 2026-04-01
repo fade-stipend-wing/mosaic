@@ -145,7 +145,13 @@ def server(con, cache):
         if method == "OPTIONS":
             handler.done()
         elif method == "GET":
-            data = ujson.loads(req.get_query("query"))
+            query_param = req.get_query("query")
+            # Health check - return OK if no query parameter
+            if not query_param:
+                res.write_header("Content-Type", "application/json")
+                res.end('{"status":"ok"}')
+                return
+            data = ujson.loads(query_param)
             handle_query(handler, con, cache, data)
         elif method == "POST":
             data = await res.get_json()

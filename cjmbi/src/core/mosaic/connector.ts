@@ -88,7 +88,6 @@ class MosaicConnectorService {
       const batch = rows.slice(i, i + batchSize);
       const values = batch.map(row => {
         const vals = row.map((v, idx) => {
-          const header = headers[idx];
           const colDef = columnDefs.split(',')[idx];
           if (colDef?.includes('INTEGER') || colDef?.includes('DOUBLE')) {
             return v === '' ? 'NULL' : v;

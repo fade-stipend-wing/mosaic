@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Mosaic DuckDB Server - backend for data processing
   mosaic-server:

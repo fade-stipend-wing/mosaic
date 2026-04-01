@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -6,8 +6,9 @@ import {
   useSensor,
   useSensors,
   PointerSensor,
-  DragOverlay,
+  useDraggable,
 } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 import { useAppStore, useWidgets, useUIState } from '@/core/state/store';
 import { WidgetRenderer } from './WidgetRenderer';
 import { Icon } from '@/components/common/Icon';
@@ -105,6 +106,7 @@ export function Canvas() {
                 isDesignMode={mode === 'design'}
                 gridRowHeight={GRID_ROW_HEIGHT}
                 gridColumns={GRID_COLUMNS}
+                canvasRef={canvasRef}
               />
             ))
           )}
@@ -137,6 +139,7 @@ interface WidgetContainerProps {
   isDesignMode: boolean;
   gridRowHeight: number;
   gridColumns: number;
+  canvasRef: React.RefObject<HTMLDivElement>;
 }
 
 function WidgetContainer({
@@ -145,8 +148,16 @@ function WidgetContainer({
   isDesignMode,
   gridRowHeight,
   gridColumns,
+  canvasRef,
 }: WidgetContainerProps) {
-  const { selectWidget } = useAppStore();
+  const { selectWidget, updateWidgetPosition } = useAppStore();
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeStartRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: widget.id,
+    disabled: !isDesignMode || isResizing,
+  });
 
   const style = {
     position: 'absolute' as const,
@@ -155,22 +166,71 @@ function WidgetContainer({
     width: `${(widget.position.width / gridColumns) * 100}%`,
     height: widget.position.height * gridRowHeight,
     padding: '4px',
+    transform: CSS.Translate.toString(transform),
+    zIndex: isDragging ? 1000 : isSelected ? 10 : 1,
+    opacity: isDragging ? 0.8 : 1,
   };
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsResizing(true);
+    resizeStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      width: widget.position.width,
+      height: widget.position.height,
+    };
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!resizeStartRef.current || !canvasRef.current) return;
+      
+      const canvasRect = canvasRef.current.getBoundingClientRect();
+      const cellWidth = canvasRect.width / gridColumns;
+      
+      const deltaX = moveEvent.clientX - resizeStartRef.current.x;
+      const deltaY = moveEvent.clientY - resizeStartRef.current.y;
+      
+      const deltaWidthCells = Math.round(deltaX / cellWidth);
+      const deltaHeightCells = Math.round(deltaY / gridRowHeight);
+      
+      const newWidth = Math.max(1, Math.min(gridColumns - widget.position.x, resizeStartRef.current.width + deltaWidthCells));
+      const newHeight = Math.max(1, resizeStartRef.current.height + deltaHeightCells);
+      
+      updateWidgetPosition(widget.id, {
+        ...widget.position,
+        width: newWidth,
+        height: newHeight,
+      });
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      resizeStartRef.current = null;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [widget.id, widget.position, gridColumns, gridRowHeight, canvasRef, updateWidgetPosition]);
 
   return (
     <div
+      ref={setNodeRef}
       style={style}
       onClick={(e) => {
         e.stopPropagation();
         selectWidget(widget.id);
       }}
+      {...(isDesignMode && !isResizing ? { ...attributes, ...listeners } : {})}
     >
       <div
-        className={`h-full rounded-lg border bg-white overflow-hidden transition-all ${
+        className={`h-full rounded-lg border bg-white overflow-hidden transition-shadow ${
           isSelected
             ? 'border-mosaic-500 ring-2 ring-mosaic-200 shadow-lg'
             : 'border-surface-200 hover:border-surface-300 shadow-sm'
-        } ${isDesignMode ? 'cursor-move' : ''}`}
+        } ${isDesignMode && !isResizing ? 'cursor-move' : ''} ${isDragging ? 'shadow-2xl' : ''}`}
       >
         {/* Widget Header */}
         {widget.title && (
@@ -188,11 +248,14 @@ function WidgetContainer({
 
         {/* Resize Handle (design mode only) */}
         {isDesignMode && isSelected && (
-          <div className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize">
+          <div 
+            className="absolute bottom-0 right-0 w-6 h-6 cursor-se-resize flex items-center justify-center bg-mosaic-500 rounded-tl-md"
+            onMouseDown={handleResizeStart}
+          >
             <Icon
               name="grip"
               size={12}
-              className="text-surface-400 rotate-45 translate-x-0.5 translate-y-0.5"
+              className="text-white"
             />
           </div>
         )}
